@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configures the Camel Context-->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+  <bean id="zipSplitter" class="org.apache.camel.dataformat.zipfile.ZipSplitter" />
+
+  <bean id="zipAggregationStrategy" class="org.apache.camel.processor.aggregate.zipfile.ZipAggregationStrategy" />
+  <camelContext xmlns="http://camel.apache.org/schema/spring">
+
+    <route>
+
+      <from uri="file:src/data?noop=true"/>
+      <choice>
+        <when>
+          <xpath>/person/city = 'London'</xpath>
+          <log message="UK message"/>
+          <to uri="file:target/messages/uk"/>
+        </when>
+        <otherwise>
+          <log message="Other message"/>
+          <to uri="file:target/messages/others"/>
+        </otherwise>
+      </choice>
+    </route>
+
+    <route id="ConsumeZipFiles">
+      <from uri="file:src/data/zip?noop=true&amp;delay=30000" />
+      <split streaming="true">
+        <ref>zipSplitter</ref>
+        <to uri="file:target/output" />
+      </split>
+    </route>
+
+    <route id="writeZip">
+      <from uri="file:target/output"/>
+      <aggregate aggregationStrategy="zipAggregationStrategy" completionFromBatchConsumer="true" eagerCheckCompletion="true" >
+        <correlationExpression>
+          <constant>true</constant>
+        </correlationExpression>
+        <to uri="file:target/zipped" />
+
+      </aggregate>
+    </route>
+  </camelContext>
+
+</beans>
